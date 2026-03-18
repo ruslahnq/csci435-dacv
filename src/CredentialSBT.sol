@@ -93,4 +93,10 @@ contract CredentialSBT is ERC721, Ownable {
         require(from == address(0) || to == address(0), "Soulbound: token is non-transferable");
         return super._update(to, tokenId, auth);
     }
+
+    function approve(address, uint256) public virtual override { revert("Soulbound: token is non-transferable"); }
+    function setApprovalForAll(address, bool) public virtual override { revert("Soulbound: token is non-transferable"); }
+    function transferFrom(address, address, uint256) public virtual override { revert("Soulbound: token is non-transferable"); }
+    function safeTransferFrom(address, address, uint256, bytes memory) public virtual override { revert("Soulbound: token is non-transferable"); }
+    
 }
