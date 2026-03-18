@@ -15,3 +15,4 @@ states/
 .env.local
 
 ignore
+git-commit.sh
