@@ -79,6 +79,15 @@ contract CredentialSBT is ERC721, Ownable {
         valid   = !revoked && ownerOf(tokenId) == student;
     }
 
+    function getCredential(uint256 tokenId) external view returns (Credential memory) {
+        require(_credentials[tokenId].exists, "Credential does not exist");
+        return _credentials[tokenId];
+    }
+
+    function getStudentTokens(address student) external view returns (uint256[] memory) {
+        return _studentTokens[student];
+    }
+
     function _update(address to, uint256 tokenId, address auth) internal virtual override returns (address) {
         address from = _ownerOf(tokenId);
         require(from == address(0) || to == address(0), "Soulbound: token is non-transferable");
