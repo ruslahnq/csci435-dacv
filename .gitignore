@@ -15,7 +15,7 @@ states/
 .env.local
 
 ignore
-git-commit.sh
+gitc.sh
 .venv/
 node_modules/
 dist/
