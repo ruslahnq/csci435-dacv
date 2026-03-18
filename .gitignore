@@ -16,3 +16,7 @@ states/
 
 ignore
 git-commit.sh
+.venv/
+node_modules/
+dist/
+build/
