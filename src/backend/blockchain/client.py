@@ -42,3 +42,27 @@ def build_metadata_hash(record: dict) -> str:
     canonical = json.dumps(record, sort_keys=True, ensure_ascii=True)
     raw = Web3.keccak(text=canonical)
     return raw.hex()
+
+
+def send_transaction(fn):
+    web3 = get_web3()
+    account = web3.eth.account.from_key(ISSUER_PRIVATE_KEY)
+    nonce = web3.eth.get_transaction_count(account.address)
+
+    tx = fn.build_transaction(
+        {
+            "from": account.address,
+            "nonce": nonce,
+            "gas": 300_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+
+    signed = web3.eth.account.sign_transaction(tx, ISSUER_PRIVATE_KEY)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+
+    if receipt.status != 1:
+        raise RuntimeError(f"Transaction reverted: {tx_hash.hex()}")
+
+    return tx_hash.hex(), receipt
