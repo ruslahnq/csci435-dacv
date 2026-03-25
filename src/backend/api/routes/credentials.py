@@ -45,7 +45,10 @@ async def issue_credential(req: IssueRequest, db: AsyncSession = Depends(get_db)
         "notes": req.notes,
     }
     metadata_hash_hex = build_metadata_hash(metadata_blob)
-    metadata_hash_bytes = bytes.fromhex(metadata_hash_hex[2:])
+    if not metadata_hash_hex.startswith("0x"):
+        metadata_hash_hex = "0x" + metadata_hash_hex
+    if len(metadata_hash_hex) != 66:
+        raise HTTPException(status_code=500, detail="Invalid metadata hash length")
 
     record.metadata_hash = metadata_hash_hex
 
@@ -54,7 +57,7 @@ async def issue_credential(req: IssueRequest, db: AsyncSession = Depends(get_db)
         fn = contract.functions.issueCredential(
             req.student_address,
             metadata_uri,
-            metadata_hash_bytes,
+            metadata_hash_hex,
         )
         tx_hash, receipt = send_transaction(fn)
     except Exception as exc:
