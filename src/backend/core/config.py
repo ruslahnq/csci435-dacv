@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/dacv"
+    "DATABASE_URL", "postgresql+asyncpg://postgres:@localhost:5432/sbtverify"
 )
 WEB3_PROVIDER_URL = os.getenv("WEB3_PROVIDER_URL", "")
 CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS", "")
