@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract CredentialSBT is ERC721, Ownable {
 
     event Locked(uint256 tokenId);
+    event Unlocked(uint256 tokenId);
 
     function locked(uint256 tokenId) external view returns (bool) {
         require(_credentials[tokenId].exists, "Token does not exist");
@@ -72,6 +73,7 @@ contract CredentialSBT is ERC721, Ownable {
     function verifyCredential(address student, uint256 tokenId) external view returns (bool valid, bool revoked, string memory uri, bytes32 hash) {
         Credential memory cred = _credentials[tokenId];
         require(cred.exists, "Credential does not exist");
+        require(_ownerOf(tokenId) == student || _credentials[tokenId].isRevoked, "Token not owned by student");
 
         revoked = cred.isRevoked;
         uri     = cred.metadataUri;
@@ -82,6 +84,11 @@ contract CredentialSBT is ERC721, Ownable {
     function getCredential(uint256 tokenId) external view returns (Credential memory) {
         require(_credentials[tokenId].exists, "Credential does not exist");
         return _credentials[tokenId];
+    }
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(_credentials[tokenId].exists, "Token does not exist");
+        return _credentials[tokenId].metadataUri;
     }
 
     function getStudentTokens(address student) external view returns (uint256[] memory) {
