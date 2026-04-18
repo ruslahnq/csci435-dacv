@@ -41,7 +41,7 @@ import {
   Search,
   ShieldX,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type IssuerMode = "issue" | "revoke";
 type LoadingState = "idle" | "loading" | "success" | "error";
@@ -171,6 +171,11 @@ export function IssuerPage() {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [credentialsState, setCredentialsState] = useState<LoadingState>("idle");
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
+  const [credentialSearchQuery, setCredentialSearchQuery] = useState("");
+  const [isCredentialListScrolling, setIsCredentialListScrolling] = useState(false);
+  const credentialScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const selectedCredential = useMemo(() => {
     const tokenId = parseInt(revokeFormData.tokenId, 10);
     if (isNaN(tokenId)) {
@@ -179,6 +184,36 @@ export function IssuerPage() {
 
     return credentials.find((credential) => credential.token_id === tokenId) ?? null;
   }, [credentials, revokeFormData.tokenId]);
+  const filteredCredentials = useMemo(() => {
+    const query = credentialSearchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return credentials;
+    }
+
+    return credentials.filter((credential) => {
+      const searchableParts = [
+        credential.db_id,
+        credential.token_id,
+        credential.student_address,
+        credential.metadata.student_name,
+        credential.metadata.degree,
+        formatDegree(credential.metadata.degree),
+        credential.metadata.major,
+        credential.metadata.graduation_year,
+        credential.metadata.gpa ?? "",
+        credential.metadata.notes ?? "",
+        credential.metadata.institution ?? "University",
+        credential.transaction_hash ?? "",
+        credential.issued_at,
+        credential.is_active ? "active" : "revoked",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchableParts.includes(query);
+    });
+  }, [credentialSearchQuery, credentials]);
 
   const isDisabled = !isConnected || !isCorrectNetwork;
 
@@ -203,6 +238,26 @@ export function IssuerPage() {
       void fetchCredentials();
     }
   }, [activeMode]);
+
+  useEffect(() => {
+    return () => {
+      if (credentialScrollTimeoutRef.current) {
+        clearTimeout(credentialScrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleCredentialListScroll = () => {
+    setIsCredentialListScrolling(true);
+
+    if (credentialScrollTimeoutRef.current) {
+      clearTimeout(credentialScrollTimeoutRef.current);
+    }
+
+    credentialScrollTimeoutRef.current = setTimeout(() => {
+      setIsCredentialListScrolling(false);
+    }, 550);
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -779,7 +834,30 @@ export function IssuerPage() {
                 </Button>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="mb-4">
+                <Input
+                  value={credentialSearchQuery}
+                  onChange={(e) => setCredentialSearchQuery(e.target.value)}
+                  placeholder="Search by name, degree, major, university, token ID, tx hash..."
+                  className="h-10"
+                />
+              </div>
+
+              <div
+                className={cn(
+                  "min-h-0 flex-1 overflow-y-auto pr-1",
+                  "[scrollbar-width:thin] [scrollbar-color:transparent_transparent]",
+                  "[&::-webkit-scrollbar]:w-1.5",
+                  "[&::-webkit-scrollbar-track]:bg-transparent",
+                  "[&::-webkit-scrollbar-thumb]:rounded-full",
+                  "[&::-webkit-scrollbar-thumb]:border",
+                  "[&::-webkit-scrollbar-thumb]:border-transparent",
+                  "[&::-webkit-scrollbar-thumb]:bg-transparent",
+                  isCredentialListScrolling &&
+                    "[scrollbar-color:var(--color-primary)_transparent] [&::-webkit-scrollbar-thumb]:border-primary/45 [&::-webkit-scrollbar-thumb]:bg-primary/45"
+                )}
+                onScroll={handleCredentialListScroll}
+              >
                 {credentialsState === "loading" && (
                   <div className="grid gap-4">
                     {[...Array(3)].map((_, index) => (
@@ -801,7 +879,8 @@ export function IssuerPage() {
                   </div>
                 )}
 
-                {credentialsState === "success" && credentials.length === 0 && (
+                {credentialsState === "success" &&
+                  credentials.length === 0 && (
                   <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-border bg-muted/20 p-12 text-center">
                     <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                       <Search className="h-8 w-8 text-muted-foreground" />
@@ -815,9 +894,25 @@ export function IssuerPage() {
                   </div>
                 )}
 
-                {credentialsState === "success" && credentials.length > 0 && (
+                {credentialsState === "success" &&
+                  credentials.length > 0 &&
+                  filteredCredentials.length === 0 && (
+                  <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-border bg-muted/20 p-12 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                      <Search className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="mb-2 text-lg font-semibold">
+                      No Matching Credentials
+                    </h3>
+                    <p className="max-w-sm text-muted-foreground">
+                      Try a different keyword such as student name, degree, major, university, or token ID.
+                    </p>
+                  </div>
+                )}
+
+                {credentialsState === "success" && filteredCredentials.length > 0 && (
                   <div className="grid gap-3">
-                    {credentials.map((credential) => (
+                    {filteredCredentials.map((credential) => (
                       <RecentCredentialRow
                         key={credential.token_id}
                         credential={credential}
