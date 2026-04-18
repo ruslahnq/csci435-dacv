@@ -41,7 +41,7 @@ import {
   Search,
   ShieldX,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type IssuerMode = "issue" | "revoke";
 type LoadingState = "idle" | "loading" | "success" | "error";
@@ -171,6 +171,14 @@ export function IssuerPage() {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [credentialsState, setCredentialsState] = useState<LoadingState>("idle");
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
+  const selectedCredential = useMemo(() => {
+    const tokenId = parseInt(revokeFormData.tokenId, 10);
+    if (isNaN(tokenId)) {
+      return null;
+    }
+
+    return credentials.find((credential) => credential.token_id === tokenId) ?? null;
+  }, [credentials, revokeFormData.tokenId]);
 
   const isDisabled = !isConnected || !isCorrectNetwork;
 
@@ -635,6 +643,73 @@ export function IssuerPage() {
                     <p className="text-sm text-destructive">{revokeErrors.tokenId}</p>
                   )}
                 </div>
+
+                {selectedCredential && (
+                  <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Selected Credential
+                      </h3>
+                      <StatusBadge isActive={selectedCredential.is_active} />
+                    </div>
+
+                    <div className="grid gap-3 text-sm">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-muted-foreground">Student</span>
+                        <span className="text-right font-medium text-foreground">
+                          {selectedCredential.metadata.student_name}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-muted-foreground">Degree</span>
+                        <span className="text-right font-medium text-foreground">
+                          {formatDegree(selectedCredential.metadata.degree)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-muted-foreground">Major</span>
+                        <span className="text-right font-medium text-foreground">
+                          {selectedCredential.metadata.major}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-muted-foreground">Graduation Year</span>
+                        <span className="text-right font-medium text-foreground">
+                          {selectedCredential.metadata.graduation_year}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-muted-foreground">Issued At</span>
+                        <span className="text-right font-medium text-foreground">
+                          {formatDate(selectedCredential.issued_at)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedCredential.transaction_hash && (
+                      <div className="space-y-2">
+                        <span className="text-xs text-muted-foreground">
+                          Transaction Hash
+                        </span>
+                        <AddressDisplay
+                          address={selectedCredential.transaction_hash}
+                          type="tx"
+                          truncate={true}
+                          showCopy={true}
+                          showEtherscan={true}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!selectedCredential &&
+                  revokeFormData.tokenId &&
+                  credentialsState === "success" && (
+                    <p className="text-sm text-muted-foreground">
+                      No cached metadata found for this token ID yet.
+                    </p>
+                  )}
 
                 <div className="rounded-xl border border-warning/50 bg-warning/15 p-4 text-sm text-warning">
                   Revocations cannot be undone. Double-check the token ID before submitting.
