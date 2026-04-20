@@ -4,8 +4,8 @@ pragma circom 2.0.0;
 // without revealing which degree it is.
 // Uses a simple Merkle proof approach.
 
-include "circomlib/circuits/poseidon.circom";
-include "circomlib/circuits/mux1.circom";
+include "../node_modules/circomlib/circuits/poseidon.circom";
+include "../node_modules/circomlib/circuits/mux1.circom";
 
 template DegreeInSet(levels) {
     // Private inputs

@@ -1,5 +1,7 @@
 pragma circom 2.0.0;
 
+include "../node_modules/circomlib/circuits/bitify.circom";
+
 template GpaThreshold() {
     // Private inputs — never revealed on-chain
     signal input gpa;           // e.g. 385 meaning 3.85
