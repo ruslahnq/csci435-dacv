@@ -4,6 +4,15 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+interface IVerifier {
+    function verifyProof(
+        uint[2]    calldata _pA,
+        uint[2][2] calldata _pB,
+        uint[2]    calldata _pC,
+        uint[]     calldata _pubSignals
+    ) external view returns (bool);
+}
+
 contract CredentialSBT is ERC721, Ownable {
 
     event Locked(uint256 tokenId);
@@ -15,7 +24,6 @@ contract CredentialSBT is ERC721, Ownable {
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        // choosing ERC-5192 support as this is a soulbound token contract
         return interfaceId == 0xb45a3c0e || super.supportsInterface(interfaceId);
     }
 
@@ -37,12 +45,42 @@ contract CredentialSBT is ERC721, Ownable {
     event CredentialIssued(address indexed student, uint256 indexed tokenId, string metadataUri, bytes32 metadataHash, uint256 issueDate);
     event CredentialRevoked(address indexed student, uint256 indexed tokenId, uint256 revokedAt);
 
+    IVerifier public gpaVerifier;
+    IVerifier public degreeVerifier;
+    IVerifier public existenceVerifier;
+
+    event VerifiersSet(address gpa, address degree, address existence);
+
+    event GpaProofVerified(address indexed student, uint256 indexed tokenId, uint256 threshold, bool result);
+    event DegreeProofVerified(address indexed student, uint256 indexed tokenId, bool result);
+    event ExistenceProofVerified(address indexed student, bool result);
+
     constructor(string memory _institutionName) ERC721("Academic Credential", "CRED") Ownable(msg.sender) {
         institutionName = _institutionName;
         _tokenIdCounter = 1;
     }
 
-    function issueCredential(address student, string memory metadataUri, bytes32 metadataHash) external onlyOwner returns (uint256) {
+    function setVerifiers(
+        address _gpaVerifier,
+        address _degreeVerifier,
+        address _existenceVerifier
+    ) external onlyOwner {
+        require(_gpaVerifier != address(0), "Invalid GPA verifier");
+        require(_degreeVerifier != address(0), "Invalid degree verifier");
+        require(_existenceVerifier != address(0), "Invalid existence verifier");
+
+        gpaVerifier       = IVerifier(_gpaVerifier);
+        degreeVerifier    = IVerifier(_degreeVerifier);
+        existenceVerifier = IVerifier(_existenceVerifier);
+
+        emit VerifiersSet(_gpaVerifier, _degreeVerifier, _existenceVerifier);
+    }
+
+    function issueCredential(
+        address student,
+        string  memory metadataUri,
+        bytes32 metadataHash
+    ) external onlyOwner returns (uint256) {
         require(student != address(0), "Invalid student address");
         require(bytes(metadataUri).length > 0, "Metadata URI cannot be empty");
         require(metadataHash != bytes32(0), "Metadata hash cannot be empty");
@@ -70,7 +108,10 @@ contract CredentialSBT is ERC721, Ownable {
         emit CredentialRevoked(student, tokenId, block.timestamp);
     }
 
-    function verifyCredential(address student, uint256 tokenId) external view returns (bool valid, bool revoked, string memory uri, bytes32 hash) {
+    function verifyCredential(address student, uint256 tokenId)
+        external view
+        returns (bool valid, bool revoked, string memory uri, bytes32 hash)
+    {
         Credential memory cred = _credentials[tokenId];
         require(cred.exists, "Credential does not exist");
         require(_ownerOf(tokenId) == student || _credentials[tokenId].isRevoked, "Token not owned by student");
@@ -79,6 +120,60 @@ contract CredentialSBT is ERC721, Ownable {
         uri     = cred.metadataUri;
         hash    = cred.metadataHash;
         valid   = !revoked && ownerOf(tokenId) == student;
+    }
+
+    // prove: GPA >= threshold
+    function verifyGpaProof(
+        uint256        tokenId,
+        uint[2]    calldata pA,
+        uint[2][2] calldata pB,
+        uint[2]    calldata pC,
+        uint[]     calldata pubSignals   // [credentialHash, threshold]
+    ) external returns (bool) {
+        require(address(gpaVerifier) != address(0), "GPA verifier not set");
+        require(_credentials[tokenId].exists,        "Credential does not exist");
+        require(!_credentials[tokenId].isRevoked,    "Credential is revoked");
+        require(pubSignals.length == 2,              "Expected 2 public signals");
+
+        bool result = gpaVerifier.verifyProof(pA, pB, pC, pubSignals);
+
+        emit GpaProofVerified(msg.sender, tokenId, pubSignals[1], result);
+        return result;
+    }
+
+    // prove: degree belongs to an approved set
+    function verifyDegreeProof(
+        uint256        tokenId,
+        uint[2]    calldata pA,
+        uint[2][2] calldata pB,
+        uint[2]    calldata pC,
+        uint[]     calldata pubSignals   // [credentialHash, degreeSetRoot]
+    ) external returns (bool) {
+        require(address(degreeVerifier) != address(0), "Degree verifier not set");
+        require(_credentials[tokenId].exists,           "Credential does not exist");
+        require(!_credentials[tokenId].isRevoked,       "Credential is revoked");
+        require(pubSignals.length == 2,                 "Expected 2 public signals");
+
+        bool result = degreeVerifier.verifyProof(pA, pB, pC, pubSignals);
+
+        emit DegreeProofVerified(msg.sender, tokenId, result);
+        return result;
+    }
+
+    // prove: a valid, non-revoked credential exists for this wallet
+    function verifyExistenceProof(
+        uint[2]    calldata pA,
+        uint[2][2] calldata pB,
+        uint[2]    calldata pC,
+        uint[]     calldata pubSignals
+    ) external returns (bool) {
+        require(address(existenceVerifier) != address(0), "Existence verifier not set");
+        require(pubSignals.length == 2,                    "Expected 2 public signals");
+
+        bool result = existenceVerifier.verifyProof(pA, pB, pC, pubSignals);
+
+        emit ExistenceProofVerified(msg.sender, result);
+        return result;
     }
 
     function getCredential(uint256 tokenId) external view returns (Credential memory) {
@@ -105,5 +200,5 @@ contract CredentialSBT is ERC721, Ownable {
     function setApprovalForAll(address, bool) public virtual override { revert("Soulbound: token is non-transferable"); }
     function transferFrom(address, address, uint256) public virtual override { revert("Soulbound: token is non-transferable"); }
     function safeTransferFrom(address, address, uint256, bytes memory) public virtual override { revert("Soulbound: token is non-transferable"); }
-    
+
 }
