@@ -21,6 +21,7 @@ class CredentialRecord(Base):
     graduation_year: Mapped[int] = mapped_column(Integer, nullable=False)
     gpa: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     metadata_hash: Mapped[Optional[str]] = mapped_column(String(66), nullable=True)
+    zkp_secret: Mapped[Optional[str]] = mapped_column(String(66), nullable=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

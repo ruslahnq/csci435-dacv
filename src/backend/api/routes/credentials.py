@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
@@ -30,6 +31,7 @@ async def issue_credential(req: IssueRequest, db: AsyncSession = Depends(get_db)
         notes=req.notes,
     )
     db.add(record)
+    record.zkp_secret = "0x" + secrets.token_hex(31)
     await db.flush()
 
     metadata_uri = f"{API_BASE_URL}/credentials/{record.id}/metadata"

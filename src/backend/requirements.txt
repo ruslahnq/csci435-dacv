@@ -5,3 +5,4 @@ asyncpg
 pydantic
 web3
 python-dotenv
+poseidon-hash
