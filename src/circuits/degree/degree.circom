@@ -1,23 +1,19 @@
 pragma circom 2.0.0;
 
-// Proves that the degree value is a member of an approved set
-// without revealing which degree it is.
-// Uses a simple Merkle proof approach.
-
 include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/mux1.circom";
 
 template DegreeInSet(levels) {
-    // Private inputs
-    signal input degree;              // numeric encoding of the degree
-    signal input pathElements[levels]; // Merkle proof siblings
-    signal input pathIndices[levels];  // 0 = left, 1 = right
+    // private
+    signal input degree;
+    signal input pathElements[levels]; //  merkle proof siblings
+    signal input pathIndices[levels]; // 0 = left, 1 = right
 
-    // Public inputs
-    signal input root;               // Merkle root of approved degree set
+    // public
+    signal input root;
     signal input credentialHash;
 
-    // Verify Merkle path
+    // verifying merkle path
     component hashers[levels];
     component mux[levels];
 
